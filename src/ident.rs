@@ -18,31 +18,6 @@ use deno_ast::swc::ast::{
   TsModuleName,
 };
 
-
-static DATA_PATH: &str="assets/xd";
-static CORPUS: LazyLock<Vec<Vec<String>>>=LazyLock::new(Vec::new);
-
-fn open_vocab()-> io::Result<HashMap<String,usize>> {
-  let raw_data=fs::read_to_string(DATA_PATH)?;
-  let corpus=raw_data.lines()
-  .map(tokenize_ident);
-  let mut vocab=HashMap::<String,usize>::new();
-  let mut idx=0usize;
-
-  for tokens in corpus {
-    for token in tokens {
-      vocab.entry(token.to_owned())
-      .or_insert_with(|| {
-        let i=idx;
-        idx+=1;
-        i
-      });
-    }
-  }
-
-  Ok(vocab)
-}
-
 pub struct Vectorizer {
   pub vocab: HashMap<Rc<str>,usize>,
   pub ordered_tokens: Vec<Rc<str>>
@@ -114,12 +89,11 @@ fn tokenize_ident(ident: &str)-> Vec<String> {
 }
 
 
-pub fn parse<D: AsRef<Decl>>(decl_items: impl AsRef<[D]>)-> Vec<String> {
+pub fn parse(decl_items: &[&Decl])-> Vec<String> {
   let items=decl_items.as_ref();
   let mut idents=Vec::<String>::new();
 
   for item in items {
-    let item=item.as_ref();
     match item {
       Decl::Fn(f)=> idents.push(f.ident.to_string()),
       Decl::Class(class)=> idents.push(class.ident.to_string()),
@@ -151,6 +125,7 @@ fn var_decl_extract_idents(decl: &VarDecl)-> impl Iterator<Item=String> {
   .map(|ident| ident.to_string())
 }
 
+#[inline]
 fn using_decl_extract_idents(decl: &UsingDecl)-> impl Iterator<Item=String> {
   decl.decls
   .iter()
